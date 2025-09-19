@@ -1,0 +1,27 @@
+# Rayle: A Puzzle-Platformer of Scale and Perspective
+
+## Description
+Rayle is a unique 2D side-scrolling puzzle-platformer where you manipulate time and space by changing the size of your character. Play as a size-changing adventurer named Rayle, navigating a whimsical world where every change in size fundamentally alters your relationship to the environment, obstacles, and the passage of time.
+
+## Core Gameplay Mechanics
+
+Size & Time Scaling: When Rayle shrinks, the world appears massive, and time moves at a snail's pace. In this form, Rayle is agile and quick, perfect for precision platforming. When Rayle grows, the world becomes small, and time speeds up, making him a strong but slow-moving force.
+
+Fixed Portals: Size changes are not a free-form ability. Rayle must pass through specialized, horn-shaped portals to change size, creating deliberate, puzzle-focused gameplay.
+
+Dynamic Obstacles: Enemies do not deal damage. Instead, they bump Rayle around, altering his trajectory and challenging the player's control. A special enemy type will "rewind" Rayle's position by two seconds upon contact, serving as both an obstacle and a key puzzle-solving tool in later levels.
+
+A Continuous World: The entire game takes place in one large, interconnected world. Progression is "Metroidvania"-style, where new sizes and abilities unlock previously inaccessible areas.
+
+## Art & Technical Approach
+
+The game features a charming, cohesive "soft shimmer" art style:
+
+Character Design: Rayle is a stuffed animal whose physical form changes dramatically with their size — from a thin, long-limbed figure to a stocky character, and finally a rolling lump.
+
+Technical Rendering: To handle the immense scale changes without performance issues, the game uses a camera zoom system. Rayle's sprite size remains constant, and the camera zooms in or out to create the illusion of changing scale.
+
+Procedural Environments: The world is rendered as a single, vast, soft-textured background. This backdrop uses procedural noise based on its color to ensure a consistent, detailed enchanted textures at any level of zoom. This background also serves as an environment map, subtly reflecting its colors and light onto Rayle and other game objects, unifying the visual style.
+
+Project Status
+This project is currently in the conceptual and early development phase. Key systems like the size-scaling logic and procedural rendering are the primary focus.
