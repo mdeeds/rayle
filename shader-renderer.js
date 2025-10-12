@@ -94,6 +94,9 @@ export class ShaderRenderer {
     `;
 
     const fsSource = `#version 300 es
+
+#define SOFT_ALIAS_METERS 0.01
+
 precision mediump float;
 
 in vec2 v_worldPositionMeters;
@@ -176,6 +179,16 @@ float triangle(vec2 p, vec2 a, vec2 b, vec2 c) {
   return min(s1, min(s2, s3));
 }
 
+float softTriangle(vec2 p, vec2 a, vec2 b, vec2 c) {
+  float aliasing = SOFT_ALIAS_METERS; // Meters
+  return smoothstep(-aliasing, aliasing, triangle(p, a, b, c));
+}
+
+float hardTriangle(vec2 p, vec2 a, vec2 b, vec2 c) {
+  float aliasing = 2.0 / uPixelsPerMeter;
+  return smoothstep(-aliasing, aliasing, triangle(p, a, b, c));
+}
+
 float pill(vec2 p, vec2 a, vec2 b, float r) {
   vec2 pa = p - a;
   vec2 ba = b - a;
@@ -188,7 +201,7 @@ float pill(vec2 p, vec2 a, vec2 b, float r) {
 }
 
 float softPill(vec2 p, vec2 a, vec2 b, float r) {
-  float aliasing = 0.3; // Meters
+  float aliasing = SOFT_ALIAS_METERS; // Meters
   return smoothstep(-aliasing, aliasing, pill(p, a, b, r));
 }
 
@@ -207,7 +220,7 @@ vec2 getDistortedPosition(vec2 pos) {
   t = csc(t);
   t = op(a, t, 1.1);
   t = csc(t);
-  return pos + t.xy * 0.2;
+  return pos + t.xy * 0.5 * SOFT_ALIAS_METERS;
 }
 
 /// END GEOMETRY ///
@@ -242,6 +255,13 @@ vec3 stone(vec2 pos) {
 
 /// END TEXTURES ///
 
+float embers(vec2 pos) {
+  float ce = 0.0;
+  ce = max(ce, softPill(pos, vec2(0.0, 0.5), vec2(0.0, 1.0), 0.5));
+  ce = max(ce, softTriangle(pos, vec2(5.0, 0.0), vec2(-5.0, 0.0), vec2(0.0, -2.0)));
+  return ce * 0.7;
+}
+
 void main(void) {
   // Calculate background color with parallax
   // This simulates the background being further away than the screen plane.
@@ -259,8 +279,10 @@ void main(void) {
   vec2 po = v_worldPositionMeters;
   vec2 pe = getDistortedPosition(v_worldPositionMeters);
 
-  float co = hardPill(po, vec2(-3.0, 0.0), vec2(3.0, 0.0), 1.0);
-  float ce = softPill(pe, vec2(-3.0, 0.0), vec2(3.0, 0.0), 1.0) * 0.7;
+  float co = hardPill(po, vec2(0.0, 0.5), vec2(0.0, 1.0), 0.5);
+  co = max(co, hardTriangle(po, vec2(5.0, 0.0), vec2(-5.0, 0.0), vec2(0.0, -2.0)));
+  float ce = embers(pe);
+
   vec4 stoneColor = vec4(stone(v_worldPositionMeters), 1.0);
   vec4 emberColor = vec4(1.0, 0.8, 0.0, 1.0);
   outColor = backgroundColor;
