@@ -21,6 +21,9 @@ export class ShaderRenderer {
     }
 
     /** @type {number} */
+    this.time = 0.0;
+
+    /** @type {number} */
     this.rayleSize = 0.0;
     /** @type {number} */
     this.x = 0.0;
@@ -76,23 +79,121 @@ export class ShaderRenderer {
         uniform vec2 uScreenSizeMeters;
         uniform vec2 uScreenCenterMeters;
 
-        out highp vec2 v_worldPositionMeters;
+        out vec2 v_worldPositionMeters;
         void main(void) {
             gl_Position = aPosition;
-            v_worldPositionMeters = aPosition.xy * uScreenSizeMeters + uScreenCenterMeters;
+            v_worldPositionMeters = aPosition.xy * 0.5 * uScreenSizeMeters + uScreenCenterMeters;
         }
     `;
 
     const fsSource = `#version 300 es
-        precision mediump float;
+precision mediump float;
 
-        in highp vec2 v_worldPositionMeters;
-        out vec4 outColor;
+uniform float uTimeSeconds;
+uniform float uPixelsPerMeter;
 
-        void main(void) {
-          float c = length(v_worldPositionMeters);
-          outColor = vec4(vec3(c, 0.0, 1.0), 1.0);
-        }
+////////////////// START NOISE ////////////////
+
+vec3 s(in vec3 x) {
+  return vec3(sin(3.0 * x.x), sin(3.0 * x.y), sin(3.0 * x.z));
+}
+
+vec3 h_mul(in vec3 x, in float h) {
+  return s(x * h);
+}
+
+vec3 h_add(in vec3 x, in vec3 h) {
+  return s(x + h);
+}
+
+vec3 op(in vec3 carrier, in vec3 osc, in float level) {
+  return h_add(carrier, level * osc);
+}
+
+mat2 rotate2d(float angle) {
+    float c = cos(angle);
+    float s = sin(angle);
+    // The matrix constructor is column-major:
+    // mat2(column0_x, column0_y, column1_x, column1_y)
+    return mat2(
+        c,   s,  // First column
+        -s,  c   // Second column
+    );
+}
+
+vec3 blah_rot(in vec3 a, in vec3 b) {
+  vec2 xy = rotate2d(b.x) * vec2(a.yz);
+  vec2 yz = rotate2d(b.y) * vec2(a.zx);
+  vec2 zx = rotate2d(b.z) * vec2(a.xy);
+
+  return vec3(xy.x + yz.y, yz.x + zx.y, zx.x + xy.y);
+}
+ 
+vec3 csc(in vec3 a) {
+   return 1.414 * vec3(length(vec2(a.y, a.x)), 
+        length(vec2(a.z, a.y)), 
+        length(vec2(a.x, a.z))) - 0.707;
+}
+
+vec3 tri(in vec2 pos) {
+  mat2 r30 = rotate2d(3.14 / 3.0);
+  vec2 a = r30 * pos;
+  vec2 b = r30 * a;
+  vec3 t = vec3(pos.x, a.x, b.x);
+  return t;
+}
+
+////////////////// END NOISE ////////////////
+
+
+// Returns a value > 0 if p is on one side of the line ab, < 0 if on the other.
+float side(vec2 p, vec2 a, vec2 b) {
+  return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+}
+
+float triangle(vec2 p, vec2 a, vec2 b, vec2 c) {
+  float s1 = side(p, a, b);
+  float s2 = side(p, b, c);
+  float s3 = side(p, c, a);
+  // The point is inside if the signs of all three side checks are the same.
+  // (s1 > 0. && s2 > 0. && s3 > 0.) || (s1 < 0. && s2 < 0. && s3 < 0.)
+  // We can check this by seeing if the minimum is positive or the maximum is negative.
+  return min(s1, min(s2, s3));
+}
+
+float pill(vec2 p, vec2 a, vec2 b, float r, float aliasing) {
+  vec2 pa = p - a;
+  vec2 ba = b - a;
+  // Project p onto the line of ab, but clamp the projection to the segment ab
+  float h = clamp(dot(pa, ba) / dot(ba, ba), 0.0, 1.0);
+  // Calculate the distance from p to the closest point on the segment
+  float d = length(pa - ba * h);
+  // Return a positive value if the distance is less than the radius
+  return smoothstep(0.0, aliasing, r - d);
+}
+
+in vec2 v_worldPositionMeters;
+out vec4 outColor;
+
+void main(void) {
+  vec3 t = tri(v_worldPositionMeters.xy * 0.01 - vec2(0.0, uTimeSeconds * 0.03));
+  vec3 a = blah_rot(h_mul(t, 2.51), h_mul(t, 3.1));
+  vec3 b = blah_rot(h_mul(t, 2.7), h_mul(t, 0.23));
+  t = op(a, b, 0.1);
+  t = csc(t);
+  t = op(b, t, 0.2);
+  t = csc(t);
+  t = op(a, t, 1.1);
+  t = csc(t);
+
+  vec2 po = v_worldPositionMeters;
+  vec2 pe = v_worldPositionMeters + t.xy * 0.2;
+
+  float co = pill(po, vec2(-3.0, 0.0), vec2(3.0, 0.0), 1.0, 2.0 / uPixelsPerMeter);
+  float ce = pill(pe, vec2(-3.0, 0.0), vec2(3.0, 0.0), 1.0, 0.3) * 0.7;
+  
+  outColor = vec4(max(co, ce), max(co, ce), co, 1.0);
+}
         `;
 
     const shaderProgram = this.initShaderProgram(vsSource, fsSource);
@@ -202,6 +303,9 @@ export class ShaderRenderer {
     const uScreenCenterMetersLocation = this.gl.getUniformLocation(this.program, 'uScreenCenterMeters');
     this.gl.uniform2f(uScreenCenterMetersLocation, 0.0, 0.0);
 
+    const uTimeSecondsLocation = this.gl.getUniformLocation(this.program, 'uTimeSeconds');
+    this.gl.uniform1f(uTimeSecondsLocation, this.time);
+
     // Calculate screen height in meters to maintain aspect ratio
     const screenWidthMeters = 10.0;
     const aspect = this.canvas.height / this.canvas.width;
@@ -210,9 +314,14 @@ export class ShaderRenderer {
     const uScreenSizeMetersLocation = this.gl.getUniformLocation(this.program, 'uScreenSizeMeters');
     this.gl.uniform2f(uScreenSizeMetersLocation, screenWidthMeters, screenHeightMeters);
 
+    const uPixelsPerMeterLocation = this.gl.getUniformLocation(this.program, 'uPixelsPerMeter');
+    this.gl.uniform1f(uPixelsPerMeterLocation, this.canvas.width / screenWidthMeters);
+
     this.gl.clearColor(0.0, 0.0, 0.0, 1.0); // Clear to black, fully opaque
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
     this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
+
+    this.time += 0.01;  // TODO: Make this smarter.
 
     requestAnimationFrame(this.render.bind(this));
   }
