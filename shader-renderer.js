@@ -6,26 +6,24 @@
 export class ShaderRenderer {
   /**
    * @param {HTMLElement} containerDiv The element to contain the canvas.
-   * @param {HTMLElement} textureDiv The element to use as a texture (not yet implemented).
    */
-  constructor(containerDiv, textureDiv) {
+  constructor(containerDiv) {
     /** @type {HTMLElement} */
     this.containerDiv = containerDiv;
-    /** @type {HTMLElement} */
-    this.textureDiv = textureDiv;
     /** @type {HTMLCanvasElement} */
     this.canvas = document.createElement('canvas');
     this.containerDiv.appendChild(this.canvas);
     /** @type {WebGLRenderingContext | null} */
-    this.gl = this.canvas.getContext('webgl');
-
-    this.rayleSize = 0.0;
-    this.x = 0.0;
-
+    this.gl = this.canvas.getContext('webgl2');
     if (!this.gl) {
       console.error('Unable to initialize WebGL. Your browser may not support it.');
       return;
     }
+
+    /** @type {number} */
+    this.rayleSize = 0.0;
+    /** @type {number} */
+    this.x = 0.0;
 
     /** @type {WebGLProgram | null} */
     this.program = null;
@@ -37,7 +35,7 @@ export class ShaderRenderer {
 
   async initialize() {
     this.initWebGL();
-    await this.initTexture();
+    // await this.initTexture();
     this.resizeCanvas();
     this.render();
     this.initKeyboard();
@@ -71,25 +69,30 @@ export class ShaderRenderer {
   initWebGL() {
     if (!this.gl) return;
 
-    const vsSource = `
-            attribute highp vec4 aPosition;
-            varying highp vec2 vTextureCoord;
-            void main(void) {
-                gl_Position = aPosition;
-                vTextureCoord = (aPosition.xy + vec2(1.0, 0.0)) / 2.0 * vec2(1.0, -1.0);
-            }
-        `;
+    const vsSource = `#version 300 es
+        precision mediump float;
+        in vec4 aPosition;
+        uniform vec2 uResolutionPixels;
+        uniform vec2 uScreenSizeMeters;
+        uniform vec2 uScreenCenterMeters;
 
-    const fsSource = `
-            precision highp float;
+        out highp vec2 v_worldPositionMeters;
+        void main(void) {
+            gl_Position = aPosition;
+            v_worldPositionMeters = aPosition.xy * uScreenSizeMeters + uScreenCenterMeters;
+        }
+    `;
 
-            varying highp vec2 vTextureCoord;
-            uniform sampler2D uSampler;
-            uniform vec2 uOffset;
-            uniform float uScale;
-            void main(void) {
-                gl_FragColor = texture2D(uSampler, (uScale * vTextureCoord) + uOffset);
-            }
+    const fsSource = `#version 300 es
+        precision mediump float;
+
+        in highp vec2 v_worldPositionMeters;
+        out vec4 outColor;
+
+        void main(void) {
+          float c = length(v_worldPositionMeters);
+          outColor = vec4(vec3(c, 0.0, 1.0), 1.0);
+        }
         `;
 
     const shaderProgram = this.initShaderProgram(vsSource, fsSource);
@@ -192,23 +195,24 @@ export class ShaderRenderer {
   render() {
     if (!this.gl || !this.program) return;
 
-    // Set offset and scale uniforms
-    const velocity = 0.0003 * Math.pow(1.5, -this.rayleSize);
-    const dt = Math.pow(2, this.rayleSize);
-    const scale = 0.05 * Math.pow(2.0, this.rayleSize);
-    this.x += velocity * dt;
+    // Set uniforms
+    const uResolutionPixelsLocation = this.gl.getUniformLocation(this.program, 'uResolutionPixels');
+    this.gl.uniform2f(uResolutionPixelsLocation, this.canvas.width, this.canvas.height);
 
-    const scaleLocation = this.gl.getUniformLocation(this.program, 'uScale');
-    this.gl.uniform1f(scaleLocation, scale);
+    const uScreenCenterMetersLocation = this.gl.getUniformLocation(this.program, 'uScreenCenterMeters');
+    this.gl.uniform2f(uScreenCenterMetersLocation, 0.0, 0.0);
 
-    const offsetLocation = this.gl.getUniformLocation(this.program, 'uOffset');
-    this.gl.uniform2f(offsetLocation, this.x, 0.2);
+    // Calculate screen height in meters to maintain aspect ratio
+    const screenWidthMeters = 10.0;
+    const aspect = this.canvas.height / this.canvas.width;
+    const screenHeightMeters = screenWidthMeters * aspect;
 
+    const uScreenSizeMetersLocation = this.gl.getUniformLocation(this.program, 'uScreenSizeMeters');
+    this.gl.uniform2f(uScreenSizeMetersLocation, screenWidthMeters, screenHeightMeters);
 
     this.gl.clearColor(0.0, 0.0, 0.0, 1.0); // Clear to black, fully opaque
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
     this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
-
 
     requestAnimationFrame(this.render.bind(this));
   }
