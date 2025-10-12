@@ -40,6 +40,9 @@ export class ShaderRenderer {
     /** @type {WebGLTexture | null} */
     this.texture = null;
 
+    /** @type {any[]} */
+    this.uPillsLocations = [];
+
     this.initialize();
   }
 
@@ -95,7 +98,7 @@ export class ShaderRenderer {
 
     const fsSource = `#version 300 es
 
-#define SOFT_ALIAS_METERS 0.01
+#define SOFT_ALIAS_METERS 0.3
 
 precision mediump float;
 
@@ -108,6 +111,14 @@ uniform float uDistanceToScreenMeters;
 uniform float uDistanceToBackgroundMeters;
 uniform float uBackgroundWidthMeters;
 uniform sampler2D uSampler;
+
+struct Pill {
+    vec2 a;
+    vec2 b;
+    float r;
+};
+
+uniform Pill uPills[2];
 
 ////////////////// START NOISE ////////////////
 
@@ -276,18 +287,36 @@ void main(void) {
   background_uv.y /= backgroundHeightMeters;
   vec4 backgroundColor = texture(uSampler, background_uv);
 
-  vec2 po = v_worldPositionMeters;
-  vec2 pe = getDistortedPosition(v_worldPositionMeters);
+  outColor = backgroundColor;
 
-  float co = hardPill(po, vec2(0.0, 0.5), vec2(0.0, 1.0), 0.5);
-  co = max(co, hardTriangle(po, vec2(5.0, 0.0), vec2(-5.0, 0.0), vec2(0.0, -2.0)));
-  float ce = embers(pe);
+  vec4 emberColor = vec4(1.0, 0.8, 0.0, 0.7);
+  // Calculate embers
+  vec2 ePos = getDistortedPosition(v_worldPositionMeters);
+  for (int i = 0; i < 2; i++) {
+    if (uPills[i].r <= 0.0) {
+      continue;
+    }
+    float pillShape = softPill(ePos, uPills[i].a, uPills[i].b, uPills[i].r);
+    if (pillShape > 0.0) {
+        outColor = mix(outColor, emberColor, pillShape);
+    }
+  }
 
   vec4 stoneColor = vec4(stone(v_worldPositionMeters), 1.0);
-  vec4 emberColor = vec4(1.0, 0.8, 0.0, 1.0);
-  outColor = backgroundColor;
-  outColor = mix(outColor, emberColor, ce);
-  outColor = mix(outColor, stoneColor, co);
+  for (int i = 0; i < 2; i++) {
+    if (uPills[i].r <= 0.0) {
+      continue;
+    }
+    float pillShape = hardPill(v_worldPositionMeters, uPills[i].a, uPills[i].b, uPills[i].r);
+    if (pillShape > 0.0) {
+        outColor = mix(outColor, stoneColor, pillShape);
+    }
+  }
+
+  // The old drawing code is commented out to demonstrate the struct array.
+  // float co = hardPill(v_worldPositionMeters, vec2(0.0, 0.5), vec2(0.0, 1.0), 0.5);
+  // vec4 stoneColor = vec4(stone(v_worldPositionMeters), 1.0);
+  // outColor = mix(outColor, stoneColor, co);
   
   // outColor = mix(emberColor, stoneColor, co);
   // outColor = vec4(stoneColor);
@@ -319,6 +348,16 @@ void main(void) {
     this.gl.vertexAttribPointer(aPosition, 2, this.gl.
       FLOAT, false, 0, 0);
     this.gl.enableVertexAttribArray(aPosition);
+
+    // Get locations for the array of structs
+    for (let i = 0; i < 2; i++) {
+      this.uPillsLocations.push({
+        a: this.gl.getUniformLocation(this.program, `uPills[${i}].a`),
+        b: this.gl.getUniformLocation(this.program, `uPills[${i}].b`),
+        r: this.gl.getUniformLocation(this.program, `uPills[${i}].r`),
+        color: this.gl.getUniformLocation(this.program, `uPills[${i}].color`),
+      });
+    }
   }
 
   /**
@@ -428,6 +467,17 @@ void main(void) {
 
     const uBackgroundWidthMetersLocation = this.gl.getUniformLocation(this.program, 'uBackgroundWidthMeters');
     this.gl.uniform1f(uBackgroundWidthMetersLocation, this.uBackgroundWidthMeters);
+
+    // Set pill data
+    // Pill 1 (static)
+    this.gl.uniform2f(this.uPillsLocations[0].a, -3.0, 1.0);
+    this.gl.uniform2f(this.uPillsLocations[0].b, -2.0, 3.0);
+    this.gl.uniform1f(this.uPillsLocations[0].r, 0.5);
+
+    // Pill 2 (moves with time)
+    this.gl.uniform2f(this.uPillsLocations[1].a, 2.0, 1.0 + Math.sin(this.time * 2.1));
+    this.gl.uniform2f(this.uPillsLocations[1].b, 3.0, 3.0 + Math.cos(this.time * 2.4));
+    this.gl.uniform1f(this.uPillsLocations[1].r, 0.3);
 
     this.gl.clearColor(0.0, 0.0, 0.0, 1.0); // Clear to black, fully opaque
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
