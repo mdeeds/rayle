@@ -28,6 +28,13 @@ export class ShaderRenderer {
     /** @type {number} */
     this.x = 0.0;
 
+    /** @type {number} */
+    this.uDistanceToScreenMeters = 10.0;
+    /** @type {number} */
+    this.uDistanceToBackgroundMeters = 30.0;
+    /** @type {number} */
+    this.uBackgroundWidthMeters = 100.0;
+
     /** @type {WebGLProgram | null} */
     this.program = null;
     /** @type {WebGLTexture | null} */
@@ -38,7 +45,7 @@ export class ShaderRenderer {
 
   async initialize() {
     this.initWebGL();
-    // await this.initTexture();
+    await this.initTexture();
     this.resizeCanvas();
     this.render();
     this.initKeyboard();
@@ -89,8 +96,15 @@ export class ShaderRenderer {
     const fsSource = `#version 300 es
 precision mediump float;
 
+in vec2 v_worldPositionMeters;
+out vec4 outColor;
+
 uniform float uTimeSeconds;
 uniform float uPixelsPerMeter;
+uniform float uDistanceToScreenMeters;
+uniform float uDistanceToBackgroundMeters;
+uniform float uBackgroundWidthMeters;
+uniform sampler2D uSampler;
 
 ////////////////// START NOISE ////////////////
 
@@ -145,6 +159,7 @@ vec3 tri(in vec2 pos) {
 
 ////////////////// END NOISE ////////////////
 
+/// START GEOMETRY ///
 
 // Returns a value > 0 if p is on one side of the line ab, < 0 if on the other.
 float side(vec2 p, vec2 a, vec2 b) {
@@ -182,9 +197,6 @@ float hardPill(vec2 p, vec2 a, vec2 b, float r) {
   return smoothstep(-aliasing, aliasing, pill(p, a, b, r));
 }
 
-in vec2 v_worldPositionMeters;
-out vec4 outColor;
-
 vec2 getDistortedPosition(vec2 pos) {
   vec3 t = tri(pos.xy * 0.01 - vec2(0.0, uTimeSeconds * 0.03));
   vec3 a = blah_rot(h_mul(t, 2.51), h_mul(t, 3.1));
@@ -197,6 +209,10 @@ vec2 getDistortedPosition(vec2 pos) {
   t = csc(t);
   return pos + t.xy * 0.2;
 }
+
+/// END GEOMETRY ///
+
+/// START TEXTURES ///
 
 vec3 tex(vec2 pos) {
   vec3 t = tri(pos.xy);
@@ -224,17 +240,34 @@ vec3 stone(vec2 pos) {
   return 0.8 + (result + length(result)) * 0.04;
 }
 
+/// END TEXTURES ///
+
 void main(void) {
+  // Calculate background color with parallax
+  // This simulates the background being further away than the screen plane.
+  // As the camera moves (represented by uScreenCenterMeters), the background
+  // will appear to move slower than the foreground.
+  float parallaxFactor = uDistanceToScreenMeters / uDistanceToBackgroundMeters;
+  float backgroundHeightMeters = uBackgroundWidthMeters;
+  
+  // Calculate the texture coordinates for the background
+  vec2 background_uv = v_worldPositionMeters * parallaxFactor;
+  background_uv.x /= uBackgroundWidthMeters;
+  background_uv.y /= backgroundHeightMeters;
+  vec4 backgroundColor = texture(uSampler, background_uv);
+
   vec2 po = v_worldPositionMeters;
   vec2 pe = getDistortedPosition(v_worldPositionMeters);
 
   float co = hardPill(po, vec2(-3.0, 0.0), vec2(3.0, 0.0), 1.0);
   float ce = softPill(pe, vec2(-3.0, 0.0), vec2(3.0, 0.0), 1.0) * 0.7;
-
   vec4 stoneColor = vec4(stone(v_worldPositionMeters), 1.0);
-  vec4 emberColor = vec4(1.0, 0.8, 0.0, ce);
+  vec4 emberColor = vec4(1.0, 0.8, 0.0, 1.0);
+  outColor = backgroundColor;
+  outColor = mix(outColor, emberColor, ce);
+  outColor = mix(outColor, stoneColor, co);
   
-  outColor = mix(emberColor, stoneColor, co);
+  // outColor = mix(emberColor, stoneColor, co);
   // outColor = vec4(stoneColor);
   // outColor = vec4(emberColor);
 }
@@ -322,6 +355,10 @@ void main(void) {
 
     // See if it compiled successfully
     if (!this.gl.getShaderParameter(shader, this.gl.COMPILE_STATUS)) {
+      const sourceWithLines = source.split('\n').map((line, index) => {
+        return `${index + 1}: ${line}`;
+      }).join('\n');
+      console.error(sourceWithLines);
       console.error('An error occurred compiling the shaders: ' + this.gl.getShaderInfoLog(shader));
       this.gl.deleteShader(shader);
       return null;
@@ -360,6 +397,15 @@ void main(void) {
 
     const uPixelsPerMeterLocation = this.gl.getUniformLocation(this.program, 'uPixelsPerMeter');
     this.gl.uniform1f(uPixelsPerMeterLocation, this.canvas.width / screenWidthMeters);
+
+    const uDistanceToScreenMetersLocation = this.gl.getUniformLocation(this.program, 'uDistanceToScreenMeters');
+    this.gl.uniform1f(uDistanceToScreenMetersLocation, this.uDistanceToScreenMeters);
+
+    const uDistanceToBackgroundMetersLocation = this.gl.getUniformLocation(this.program, 'uDistanceToBackgroundMeters');
+    this.gl.uniform1f(uDistanceToBackgroundMetersLocation, this.uDistanceToBackgroundMeters);
+
+    const uBackgroundWidthMetersLocation = this.gl.getUniformLocation(this.program, 'uBackgroundWidthMeters');
+    this.gl.uniform1f(uBackgroundWidthMetersLocation, this.uBackgroundWidthMeters);
 
     this.gl.clearColor(0.0, 0.0, 0.0, 1.0); // Clear to black, fully opaque
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
