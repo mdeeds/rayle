@@ -20,6 +20,10 @@ export class RayleBody {
     this.topSpeedMps = vacuumTopSpeedMps - runningDrag;
     this.timeScale = Math.sqrt(Math.pow(2.0, this.scale));
     this.jumpHeightM = 0.5 * this.topSpeedMps * this.topSpeedMps / 9.8;
+    this.terminalVelocity = 1.0 * Math.sqrt(this.massKg / this.heightM / this.width);
+    const gravitationalForce = 9.8 * this.massKg;
+    const flapForce = 90.0 * strength;
+    this.liftAccelerationMpss = (flapForce - gravitationalForce) / this.massKg;
   }
 
   getPillNumbers(footX, footY) {
