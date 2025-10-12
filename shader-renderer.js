@@ -161,7 +161,7 @@ float triangle(vec2 p, vec2 a, vec2 b, vec2 c) {
   return min(s1, min(s2, s3));
 }
 
-float pill(vec2 p, vec2 a, vec2 b, float r, float aliasing) {
+float pill(vec2 p, vec2 a, vec2 b, float r) {
   vec2 pa = p - a;
   vec2 ba = b - a;
   // Project p onto the line of ab, but clamp the projection to the segment ab
@@ -169,14 +169,24 @@ float pill(vec2 p, vec2 a, vec2 b, float r, float aliasing) {
   // Calculate the distance from p to the closest point on the segment
   float d = length(pa - ba * h);
   // Return a positive value if the distance is less than the radius
-  return smoothstep(0.0, aliasing, r - d);
+  return r - d;
+}
+
+float softPill(vec2 p, vec2 a, vec2 b, float r) {
+  float aliasing = 0.3; // Meters
+  return smoothstep(-aliasing, aliasing, pill(p, a, b, r));
+}
+
+float hardPill(vec2 p, vec2 a, vec2 b, float r) {
+  float aliasing = 1.0 / uPixelsPerMeter;
+  return smoothstep(-aliasing, aliasing, pill(p, a, b, r));
 }
 
 in vec2 v_worldPositionMeters;
 out vec4 outColor;
 
-void main(void) {
-  vec3 t = tri(v_worldPositionMeters.xy * 0.01 - vec2(0.0, uTimeSeconds * 0.03));
+vec2 getDistortedPosition(vec2 pos) {
+  vec3 t = tri(pos.xy * 0.01 - vec2(0.0, uTimeSeconds * 0.03));
   vec3 a = blah_rot(h_mul(t, 2.51), h_mul(t, 3.1));
   vec3 b = blah_rot(h_mul(t, 2.7), h_mul(t, 0.23));
   t = op(a, b, 0.1);
@@ -185,14 +195,48 @@ void main(void) {
   t = csc(t);
   t = op(a, t, 1.1);
   t = csc(t);
+  return pos + t.xy * 0.2;
+}
 
+vec3 tex(vec2 pos) {
+  vec3 t = tri(pos.xy);
+  vec3 a = blah_rot(h_mul(t, 2.51), h_mul(t, 3.1));
+  vec3 b = blah_rot(h_mul(t, 2.7), h_mul(t, 0.23));
+  t = op(a, b, 0.1);
+  t = csc(t);
+  t = op(b, t, 0.2);
+  t = csc(t);
+  t = op(a, t, 1.1);
+  t = csc(t);
+  return t;
+}
+
+vec3 stone(vec2 pos) {
+  vec3 result = vec3(0.0);
+
+  vec3 t = tri(pos.xy);
+  result += tex(t.xy * 0.64) / 11.0;
+  result += tex(t.xy * 0.32) / 9.0;
+  result += tex(t.xy * 0.16) / 7.0;
+  result += tex(pos * 0.08) / 5.0;
+  result += tex(pos * 0.04) / 3.0;
+  result += tex(pos * 0.02);
+  return 0.8 + (result + length(result)) * 0.04;
+}
+
+void main(void) {
   vec2 po = v_worldPositionMeters;
-  vec2 pe = v_worldPositionMeters + t.xy * 0.2;
+  vec2 pe = getDistortedPosition(v_worldPositionMeters);
 
-  float co = pill(po, vec2(-3.0, 0.0), vec2(3.0, 0.0), 1.0, 2.0 / uPixelsPerMeter);
-  float ce = pill(pe, vec2(-3.0, 0.0), vec2(3.0, 0.0), 1.0, 0.3) * 0.7;
+  float co = hardPill(po, vec2(-3.0, 0.0), vec2(3.0, 0.0), 1.0);
+  float ce = softPill(pe, vec2(-3.0, 0.0), vec2(3.0, 0.0), 1.0) * 0.7;
+
+  vec4 stoneColor = vec4(stone(v_worldPositionMeters), 1.0);
+  vec4 emberColor = vec4(1.0, 0.8, 0.0, ce);
   
-  outColor = vec4(max(co, ce), max(co, ce), co, 1.0);
+  outColor = mix(emberColor, stoneColor, co);
+  // outColor = vec4(stoneColor);
+  // outColor = vec4(emberColor);
 }
         `;
 
