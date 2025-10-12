@@ -43,6 +43,8 @@ export class ShaderRenderer {
     /** @type {any[]} */
     this.uPillsLocations = [];
 
+    /** @type {any[]} */
+    this.uTrianglesLocations = [];
     this.initialize();
   }
 
@@ -120,6 +122,13 @@ struct Pill {
 
 uniform Pill uPills[2];
 
+struct Triangle {
+    vec2 p1;
+    vec2 p2;
+    vec2 p3;
+};
+uniform Triangle uTriangles[2];
+
 ////////////////// START NOISE ////////////////
 
 vec3 s(in vec3 x) {
@@ -175,9 +184,12 @@ vec3 tri(in vec2 pos) {
 
 /// START GEOMETRY ///
 
-// Returns a value > 0 if p is on one side of the line ab, < 0 if on the other.
+// Returns the signed distance from point p to the line defined by a and b.
+// A value > 0 if p is on one side of the line, < 0 if on the other.
 float side(vec2 p, vec2 a, vec2 b) {
-  return (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+  vec2 lineDir = normalize(b - a);
+  vec2 normal = vec2(lineDir.y, -lineDir.x);
+  return dot(p - a, normal);
 }
 
 float triangle(vec2 p, vec2 a, vec2 b, vec2 c) {
@@ -264,14 +276,13 @@ vec3 stone(vec2 pos) {
   return 0.8 + (result + length(result)) * 0.04;
 }
 
-/// END TEXTURES ///
-
-float embers(vec2 pos) {
-  float ce = 0.0;
-  ce = max(ce, softPill(pos, vec2(0.0, 0.5), vec2(0.0, 1.0), 0.5));
-  ce = max(ce, softTriangle(pos, vec2(5.0, 0.0), vec2(-5.0, 0.0), vec2(0.0, -2.0)));
-  return ce * 0.7;
+bool isClockwise(vec2 p1, vec2 p2, vec2 p3) {
+  // The sign of the 2D cross product of two edge vectors determines the winding order.
+  // (p2.x - p1.x) * (p3.y - p1.y) - (p2.y - p1.y) * (p3.x - p1.x)
+  return (p2.x - p1.x) * (p3.y - p1.y) - (p2.y - p1.y) * (p3.x - p1.x) < 0.0;
 }
+
+/// END TEXTURES ///
 
 void main(void) {
   // Calculate background color with parallax
@@ -289,8 +300,8 @@ void main(void) {
 
   outColor = backgroundColor;
 
+  // Render Embers
   vec4 emberColor = vec4(1.0, 0.8, 0.0, 0.7);
-  // Calculate embers
   vec2 ePos = getDistortedPosition(v_worldPositionMeters);
   for (int i = 0; i < 2; i++) {
     if (uPills[i].r <= 0.0) {
@@ -301,7 +312,17 @@ void main(void) {
         outColor = mix(outColor, emberColor, pillShape);
     }
   }
+  for (int i = 0; i < 2; i++) {
+    // A simple check to "disable" a triangle if its points are at (0,0)
+    // A more robust way would be to pass an 'active' flag.
+    if (!isClockwise(uTriangles[i].p1, uTriangles[i].p2, uTriangles[i].p3)) {
+        continue;
+    }
+    float triangleShape = softTriangle(ePos, uTriangles[i].p1, uTriangles[i].p2, uTriangles[i].p3);
+    outColor = mix(outColor, emberColor, triangleShape);
+  }
 
+  // Render Stones
   vec4 stoneColor = vec4(stone(v_worldPositionMeters), 1.0);
   for (int i = 0; i < 2; i++) {
     if (uPills[i].r <= 0.0) {
@@ -311,6 +332,15 @@ void main(void) {
     if (pillShape > 0.0) {
         outColor = mix(outColor, stoneColor, pillShape);
     }
+  }
+  for (int i = 0; i < 2; i++) {
+    // A simple check to "disable" a triangle if its points are at (0,0)
+    // A more robust way would be to pass an 'active' flag.
+    if (!isClockwise(uTriangles[i].p1, uTriangles[i].p2, uTriangles[i].p3)) {
+        continue;
+    }
+    float triangleShape = hardTriangle(v_worldPositionMeters, uTriangles[i].p1, uTriangles[i].p2, uTriangles[i].p3);
+    outColor = mix(outColor, stoneColor, triangleShape);
   }
 
   // The old drawing code is commented out to demonstrate the struct array.
@@ -355,7 +385,15 @@ void main(void) {
         a: this.gl.getUniformLocation(this.program, `uPills[${i}].a`),
         b: this.gl.getUniformLocation(this.program, `uPills[${i}].b`),
         r: this.gl.getUniformLocation(this.program, `uPills[${i}].r`),
-        color: this.gl.getUniformLocation(this.program, `uPills[${i}].color`),
+      });
+    }
+
+    // Get locations for the array of Triangle structs
+    for (let i = 0; i < 2; i++) {
+      this.uTrianglesLocations.push({
+        p1: this.gl.getUniformLocation(this.program, `uTriangles[${i}].p1`),
+        p2: this.gl.getUniformLocation(this.program, `uTriangles[${i}].p2`),
+        p3: this.gl.getUniformLocation(this.program, `uTriangles[${i}].p3`),
       });
     }
   }
@@ -479,6 +517,16 @@ void main(void) {
     this.gl.uniform2f(this.uPillsLocations[1].b, 3.0, 3.0 + Math.cos(this.time * 2.4));
     this.gl.uniform1f(this.uPillsLocations[1].r, 0.3);
 
+    // Set triangle data
+    // Triangle 1 (static)
+    this.gl.uniform2f(this.uTrianglesLocations[0].p1, -2.0, -2.0);
+    this.gl.uniform2f(this.uTrianglesLocations[0].p2, -2.0 + Math.sin(1.0), -2.0 + Math.cos(1.0));
+    this.gl.uniform2f(this.uTrianglesLocations[0].p3, -2.0 + Math.sin(2.0), -2.0 + Math.cos(2.0));
+
+    // Triangle 2 (moves with time)
+    this.gl.uniform2f(this.uTrianglesLocations[1].p1, 1.0 + Math.sin(this.time * 0.8), -1.0);
+    this.gl.uniform2f(this.uTrianglesLocations[1].p2, 2.0 + Math.sin(this.time * 0.9), -1.0);
+    this.gl.uniform2f(this.uTrianglesLocations[1].p3, 1.0 + Math.sin(this.time * 1.1), -3.0);
     this.gl.clearColor(0.0, 0.0, 0.0, 1.0); // Clear to black, fully opaque
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
     this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
