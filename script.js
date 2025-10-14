@@ -1,6 +1,7 @@
 // @ts-check
 
 import { RayleBody } from "./rayle-body.js";
+import { Rectangle } from "./rectangle.js";
 import { ShaderRenderer } from "./shader-renderer.js";
 import { Vector } from "./vector.js";
 
@@ -12,7 +13,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const sr = new ShaderRenderer(container);
   const rayles = [];
 
-  const p = new Vector(-5, 0);
+  const minX = -10;
+  const p = new Vector(minX, 0);
   let previousWidth = 0.0;
   for (let i = -3; i <= 3; i++) {
     const rayle = new RayleBody();
@@ -27,5 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
   for (const rayle of rayles) {
     sr.addPill(rayle.body.rect);
   }
+
+  sr.addRectangle(new Rectangle(minX - 1.0, p.x + 1.0, 0.0, -0.5));
 
 });

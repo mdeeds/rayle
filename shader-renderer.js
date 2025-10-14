@@ -48,10 +48,16 @@ export class ShaderRenderer {
     this.maxPills = 10;
     /** @type {Rectangle[]} */
     this.pills = [];
+    /** @type {number} */
+    this.maxRectangles = 10;
+    /** @type {Rectangle[]} */
+    this.rectangles = [];
 
     /** @type {any[]} */
     this.uPillsLocations = [];
 
+    /** @type {any[]} */
+    this.uRectanglesLocations = [];
     /** @type {any[]} */
     this.uTrianglesLocations = [];
     this.initialize();
@@ -74,6 +80,17 @@ export class ShaderRenderer {
       throw new Error(`Cannot add more than ${this.maxPills} pills.`);
     }
     this.pills.push(rect);
+  }
+
+  /**
+   * Adds a rectangle shape to be rendered.
+   * @param {Rectangle} rect The rectangle to render.
+   */
+  addRectangle(rect) {
+    if (this.rectangles.length >= this.maxRectangles) {
+      throw new Error(`Cannot add more than ${this.maxRectangles} rectangles.`);
+    }
+    this.rectangles.push(rect);
   }
 
   initKeyboard() {
@@ -148,6 +165,12 @@ struct Triangle {
     vec2 p3;
 };
 uniform Triangle uTriangles[2];
+
+struct Rectangle {
+  vec2 bottomLeft;
+  vec2 topRight;
+};
+uniform Rectangle uRectangles[10];
 
 ////////////////// START NOISE ////////////////
 
@@ -253,6 +276,22 @@ float hardPill(vec2 p, vec2 a, vec2 b, float r) {
   return smoothstep(-aliasing, aliasing, pill(p, a, b, r));
 }
 
+float rectangle(vec2 p, vec2 bottomLeft, vec2 topRight) {
+    vec2 d = max(bottomLeft - p, p - topRight);
+    // If p is inside, both (bottomLeft - p) and (p - topRight) have negative components.
+    // So d will have negative components. max(d.x, d.y) will be negative.
+    // The return value will be positive.
+    return -max(d.x, d.y);
+}
+
+float softRectangle(vec2 p, vec2 bottomLeft, vec2 topRight) {
+    return smoothstep(-SOFT_ALIAS_METERS, SOFT_ALIAS_METERS, rectangle(p, bottomLeft, topRight));
+}
+
+float hardRectangle(vec2 p, vec2 bottomLeft, vec2 topRight) {
+    return smoothstep(-1.0 / uPixelsPerMeter, 1.0 / uPixelsPerMeter, rectangle(p, bottomLeft, topRight));
+}
+
 vec2 getDistortedPosition(vec2 pos) {
   vec3 t = tri(pos.xy * 0.01 - vec2(0.0, uTimeSeconds * 0.03));
   vec3 a = blah_rot(h_mul(t, 2.51), h_mul(t, 3.1));
@@ -341,6 +380,15 @@ void main(void) {
     float triangleShape = softTriangle(ePos, uTriangles[i].p1, uTriangles[i].p2, uTriangles[i].p3);
     outColor = mix(outColor, emberColor, triangleShape);
   }
+  for (int i = 0; i < 10; i++) {
+    // A simple check to "disable" a rectangle if its corners are the same.
+    if (uRectangles[i].bottomLeft == uRectangles[i].topRight) {
+        continue;
+    }
+    float rectShape = softRectangle(ePos, uRectangles[i].bottomLeft, uRectangles[i].topRight);
+    outColor = mix(outColor, emberColor, rectShape);
+  }
+
 
   // Render Stones
   vec4 stoneColor = vec4(stone(v_worldPositionMeters), 1.0);
@@ -361,6 +409,14 @@ void main(void) {
     }
     float triangleShape = hardTriangle(v_worldPositionMeters, uTriangles[i].p1, uTriangles[i].p2, uTriangles[i].p3);
     outColor = mix(outColor, stoneColor, triangleShape);
+  }
+  for (int i = 0; i < 10; i++) {
+    // A simple check to "disable" a rectangle if its corners are the same.
+    if (uRectangles[i].bottomLeft == uRectangles[i].topRight) {
+        continue;
+    }
+    float rectShape = hardRectangle(v_worldPositionMeters, uRectangles[i].bottomLeft, uRectangles[i].topRight);
+    outColor = mix(outColor, stoneColor, rectShape);
   }
 
   // The old drawing code is commented out to demonstrate the struct array.
@@ -405,6 +461,14 @@ void main(void) {
         a: this.gl.getUniformLocation(this.program, `uPills[${i}].a`),
         b: this.gl.getUniformLocation(this.program, `uPills[${i}].b`),
         r: this.gl.getUniformLocation(this.program, `uPills[${i}].r`),
+      });
+    }
+
+    // Get locations for the array of Rectangle structs
+    for (let i = 0; i < this.maxRectangles; i++) {
+      this.uRectanglesLocations.push({
+        bottomLeft: this.gl.getUniformLocation(this.program, `uRectangles[${i}].bottomLeft`),
+        topRight: this.gl.getUniformLocation(this.program, `uRectangles[${i}].topRight`),
       });
     }
 
@@ -550,16 +614,20 @@ void main(void) {
       }
     }
 
-    // Set triangle data
-    // Triangle 1 (static)
-    this.gl.uniform2f(this.uTrianglesLocations[0].p1, -2.0, -2.0);
-    this.gl.uniform2f(this.uTrianglesLocations[0].p2, -2.0 + Math.sin(1.0), -2.0 + Math.cos(1.0));
-    this.gl.uniform2f(this.uTrianglesLocations[0].p3, -2.0 + Math.sin(2.0), -2.0 + Math.cos(2.0));
+    // Update rectangle uniforms from the rectangles array
+    for (let i = 0; i < this.maxRectangles; i++) {
+      const loc = this.uRectanglesLocations[i];
+      if (i < this.rectangles.length) {
+        const rect = this.rectangles[i];
+        this.gl.uniform2f(loc.bottomLeft, rect.left, rect.bottom);
+        this.gl.uniform2f(loc.topRight, rect.right, rect.top);
+      } else {
+        // Disable unused rectangles by setting corners to be the same
+        this.gl.uniform2f(loc.bottomLeft, 0.0, 0.0);
+        this.gl.uniform2f(loc.topRight, 0.0, 0.0);
+      }
+    }
 
-    // Triangle 2 (moves with time)
-    this.gl.uniform2f(this.uTrianglesLocations[1].p1, 1.0 + Math.sin(this.time * 0.8), -1.0);
-    this.gl.uniform2f(this.uTrianglesLocations[1].p2, 2.0 + Math.sin(this.time * 0.9), -1.0);
-    this.gl.uniform2f(this.uTrianglesLocations[1].p3, 1.0 + Math.sin(this.time * 1.1), -3.0);
     this.gl.clearColor(0.0, 0.0, 0.0, 1.0); // Clear to black, fully opaque
     this.gl.clear(this.gl.COLOR_BUFFER_BIT);
     this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
