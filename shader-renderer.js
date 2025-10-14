@@ -1,6 +1,7 @@
 // @ts-check
 
 import { Rectangle } from "./rectangle.js";
+import { Vector } from "./vector.js";
 /**
  * Renders a shader onto a canvas within a container element.
  */
@@ -32,6 +33,8 @@ export class ShaderRenderer {
     this.uBackgroundWidthMeters = 100.0;
     /** @type {number} */
     this.screenWidthMeters = 30.0;
+    /** @type {Vector} */
+    this.screenCenterMeters = new Vector(0, 0);
 
 
     /** @type {WebGLProgram | null} */
@@ -108,7 +111,7 @@ export class ShaderRenderer {
 
     const fsSource = `#version 300 es
 
-#define SOFT_ALIAS_METERS 0.3
+#define SOFT_ALIAS_METERS 0.05
 
 precision mediump float;
 
@@ -536,7 +539,7 @@ void main(void) {
     this.gl.uniform2f(uResolutionPixelsLocation, this.canvas.width, this.canvas.height);
 
     const uScreenCenterMetersLocation = this.gl.getUniformLocation(this.program, 'uScreenCenterMeters');
-    this.gl.uniform2f(uScreenCenterMetersLocation, 0.0, 0.0);
+    this.gl.uniform2f(uScreenCenterMetersLocation, this.screenCenterMeters.x, this.screenCenterMeters.y);
 
     const uTimeSecondsLocation = this.gl.getUniformLocation(this.program, 'uTimeSeconds');
     this.gl.uniform1f(uTimeSecondsLocation, this.time);

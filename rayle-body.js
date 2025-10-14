@@ -56,8 +56,8 @@ export class RayleBody {
    * @param {number} scale 
    */
   setScale(scale) {
-    if (scale < -3) { scale = -3.0; }
-    if (scale > 3) { scale = 3.0; }
+    if (scale < -1) { scale = -1.0; }
+    if (scale > 2) { scale = 2.0; }
     this.scale = scale;
     this.update();
   }
