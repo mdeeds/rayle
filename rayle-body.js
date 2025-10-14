@@ -19,7 +19,7 @@ export class RayleBody {
   /** @type {number} */
   timeScale = 1.0;
   /** @type {number} */
-  jumpHeightM = 1.0;
+  jumpVelocityMps = 1.0;
   /** @type {number} */
   terminalVelocity = 1.0;
   /** @type {number} */
@@ -66,7 +66,7 @@ export class RayleBody {
     const runningDrag = vacuumTopSpeedMps * vacuumTopSpeedMps * this.heightM * this.width / this.massKg;
     this.topSpeedMps = vacuumTopSpeedMps - runningDrag;
     this.timeScale = Math.sqrt(Math.pow(2.0, this.scale));
-    this.jumpHeightM = 0.5 * this.topSpeedMps * this.topSpeedMps / 9.8;
+    this.jumpVelocityMps = 3.0 * vacuumTopSpeedMps;
     this.terminalVelocity = 1.0 * Math.sqrt(this.massKg / this.heightM / this.width);
     const gravitationalForce = 9.8 * this.massKg;
     const flapForce = 90.0 * strength;

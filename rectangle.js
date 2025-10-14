@@ -82,6 +82,18 @@ export class Rectangle {
     return new Vector((this.left + this.right) / 2, (this.bottom + this.top) / 2);
   }
 
+  area() {
+    return (this.right - this.left) * (this.top - this.bottom);
+  }
+
+  width() {
+    return this.right - this.left;
+  }
+
+  height() {
+    return this.top - this.bottom;
+  }
+
   /**
    * 
    * @param {Rectangle} other 
@@ -89,6 +101,6 @@ export class Rectangle {
   isBelow(other) {
     const d = other.center();
     d.sub(this.center());
-    return (d.y < 0) && (Math.abs(d.y) > Math.abs(d.x));
+    return (d.y > 0) && (Math.abs(d.y) > Math.abs(d.x));
   }
 }

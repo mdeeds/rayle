@@ -74,6 +74,16 @@ export class Physics {
   #physicsStep(dtS) {
     for (const body of this.bodies) {
       if (body.canMove) {
+        body.grounded = false;
+
+        // Calculate and apply drag
+        const dragN = body.rect.width() * body.rect.width() * body.velocityMps.norm2();
+        const dragMps2 = dragN / body.massKg;
+        const vDir = body.velocityMps.clone();
+        vDir.normalize();
+        vDir.scale(-dragMps2);
+        body.accelerationMps2.add(vDir);
+
         body.velocityMps.addScaled(body.accelerationMps2, dtS);
         body.rect.addScaled(body.velocityMps, dtS);
       }
@@ -83,13 +93,16 @@ export class Physics {
 
     for (const [body, rect] of collisionMap) {
       if (body.canMove) {
-        // Ideally we want to use the smaller of the two
-        // 1) the velocity applied in this step
-        // 2) the minimum translation vector to move body.rect out of `rect`
-        body.rect.addScaled(body.velocityMps, -dtS);
         if (rect.isBelow(body.rect)) {
           body.velocityMps.y = 0;
           body.grounded = true;
+          const mtv = new Vector(0, rect.top - rect.bottom);
+          body.rect.add(mtv);
+        } else {
+          // Ideally we want to use the smaller of the two
+          // 1) the velocity applied in this step
+          // 2) the minimum translation vector to move body.rect out of `rect`
+          body.rect.addScaled(body.velocityMps, -dtS);
         }
       }
     }

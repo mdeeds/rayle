@@ -37,6 +37,14 @@ export class Vector {
   }
 
   /**
+   * Calculates the squared magnitude of the vector.
+   * @returns {number}
+   */
+  norm2() {
+    return this.x * this.x + this.y * this.y;
+  }
+
+  /**
    * Modifies the vector to be a unit vector (length 1).
    */
   normalize() {

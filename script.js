@@ -13,6 +13,7 @@ document.addEventListener('DOMContentLoaded', () => {
     throw new Error('Shader container not found.');
   }
   const sr = new ShaderRenderer(container);
+  /** @type {RayleBody[]} */
   const rayles = [];
 
   const minX = -10;
@@ -28,6 +29,8 @@ document.addEventListener('DOMContentLoaded', () => {
     previousWidth = rayle.width;
   }
 
+
+
   const physics = new Physics();
 
   for (const rayle of rayles) {
@@ -39,6 +42,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const floorBody = new RigidBody(floorRect);
   sr.addRectangle(floorRect);
   physics.addRigidBody(floorBody);
+
+  document.addEventListener('keydown', (event) => {
+    if (event.code === 'Space') {
+      for (const rayle of rayles) {
+        if (rayle.body.grounded) {
+          rayle.body.velocityMps.y = rayle.jumpVelocityMps;
+        }
+      }
+    }
+  });
 
   const renderLoop = () => {
     sr.render();
