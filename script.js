@@ -4,6 +4,8 @@ import { RayleBody } from "./rayle-body.js";
 import { Rectangle } from "./rectangle.js";
 import { ShaderRenderer } from "./shader-renderer.js";
 import { Vector } from "./vector.js";
+import { Physics } from "./physics.js";
+import { RigidBody } from "./rigid-body.js";
 
 document.addEventListener('DOMContentLoaded', () => {
   const container = document.getElementById('shader-container');
@@ -26,10 +28,25 @@ document.addEventListener('DOMContentLoaded', () => {
     previousWidth = rayle.width;
   }
 
+  const physics = new Physics();
+
   for (const rayle of rayles) {
     sr.addPill(rayle.body.rect);
+    physics.addRigidBody(rayle.body);
   }
 
-  sr.addRectangle(new Rectangle(minX - 1.0, p.x + 1.0, 0.0, -0.5));
+  const floorRect = new Rectangle(minX - 1.0, p.x + 1.0, -9.7, -10);
+  const floorBody = new RigidBody(floorRect);
+  sr.addRectangle(floorRect);
+  physics.addRigidBody(floorBody);
 
+  const renderLoop = () => {
+    sr.render();
+    const dt = 1 / 60;
+    physics.physicsStep(dt);
+    sr.time += dt;
+    requestAnimationFrame(renderLoop);
+  }
+
+  renderLoop();
 });

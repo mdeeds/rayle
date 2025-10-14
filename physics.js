@@ -1,8 +1,8 @@
 //@ts-check
 
-import { Vector } from "./vector";
-import { Rectangle } from "./rectangle";
-import { RigidBody } from "./rigid-body";
+import { Vector } from "./vector.js";
+import { Rectangle } from "./rectangle.js";
+import { RigidBody } from "./rigid-body.js";
 
 export class Physics {
   /** @type {RigidBody[]} */
@@ -28,21 +28,23 @@ export class Physics {
     for (let i = 0; i < numSteps; i++) {
       this.#physicsStep(dtS / numSteps);
     }
+    for (const body of this.bodies) {
+      body.resetPhysics();
+    }
   }
 
   static littleG = new Vector(0, -9.81);
 
   #initPhysics() {
     for (const body of this.bodies) {
-      body.resetPhysics();
       if (body.canMove) {
-        body.addForce(Physics.littleG);
         const v = body.netImpulseNS.clone();
         v.scale(1 / body.massKg);
         body.velocityMps.add(v);
         const a = body.netForceN.clone();
         a.scale(1 / body.massKg);
         body.accelerationMps2.set(a);
+        body.accelerationMps2.add(Physics.littleG);
       }
     }
   }

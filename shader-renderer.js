@@ -67,7 +67,6 @@ export class ShaderRenderer {
     this.initWebGL();
     await this.initTexture();
     this.resizeCanvas();
-    this.render();
     this.initKeyboard();
   }
 
@@ -633,8 +632,6 @@ void main(void) {
     this.gl.drawArrays(this.gl.TRIANGLE_STRIP, 0, 4);
 
     this.time += 0.01;  // TODO: Make this smarter.
-
-    requestAnimationFrame(this.render.bind(this));
   }
 
   /**
