@@ -49,6 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (rayle.body.grounded) {
           rayle.body.velocityMps.y = rayle.jumpVelocityMps;
         }
+        rayle.body.velocityMps.y += rayle.flapVelocityMps;
       }
     }
   });
