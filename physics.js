@@ -77,12 +77,15 @@ export class Physics {
         body.grounded = false;
 
         // Calculate and apply drag
-        const dragN = body.rect.width() * body.rect.width() * body.velocityMps.norm2();
-        const dragMps2 = dragN / body.massKg;
-        const vDir = body.velocityMps.clone();
-        vDir.normalize();
-        vDir.scale(-dragMps2);
-        body.accelerationMps2.add(vDir);
+        const v2 = body.velocityMps.norm2();
+        if (v2 > 0.01) {
+          const dragN = body.rect.width() * body.rect.width() * v2;
+          const dragMps2 = dragN / body.massKg;
+          const vDir = body.velocityMps.clone();
+          vDir.normalize();
+          vDir.scale(-dragMps2);
+          body.accelerationMps2.add(vDir);
+        }
 
         body.velocityMps.addScaled(body.accelerationMps2, dtS);
         body.rect.addScaled(body.velocityMps, dtS);

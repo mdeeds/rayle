@@ -15,6 +15,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const sr = new ShaderRenderer(container);
   /** @type {RayleBody[]} */
   const rayles = [];
+  let playerRayle = null;
 
   const minX = -10;
   const p = new Vector(minX, 0);
@@ -27,6 +28,9 @@ document.addEventListener('DOMContentLoaded', () => {
     rayles.push(rayle);
     p.add(new Vector(rayle.width, 0));
     previousWidth = rayle.width;
+    if (i === 0) {
+      playerRayle = rayle;
+    }
   }
 
 
@@ -44,15 +48,30 @@ document.addEventListener('DOMContentLoaded', () => {
   physics.addRigidBody(floorBody);
 
   document.addEventListener('keydown', (event) => {
-    if (event.code === 'Space') {
-      for (const rayle of rayles) {
+    // Handle all instances of Rayle identically.
+    for (const rayle of rayles) {
+      if (event.code === 'Space') {
         if (rayle.body.grounded) {
           rayle.body.velocityMps.y = rayle.jumpVelocityMps;
         }
         rayle.body.velocityMps.y += rayle.flapVelocityMps;
+      } else if (event.code === 'KeyA') {
+        if (rayle.body.grounded) {
+          rayle.body.velocityMps.x = -rayle.topSpeedMps;
+        }
+      } else if (event.code === 'KeyD') {
+        if (rayle.body.grounded) {
+          rayle.body.velocityMps.x = rayle.topSpeedMps;
+        }
       }
     }
   });
+
+  document.addEventListener('keyup', (event) => {
+    if (playerRayle && (event.code === 'KeyA' || event.code === 'KeyD')) {
+      playerRayle.body.velocityMps.x = 0;
+    }
+  })
 
   const renderLoop = () => {
     sr.render();
