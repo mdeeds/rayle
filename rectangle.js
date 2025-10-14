@@ -77,4 +77,18 @@ export class Rectangle {
     this.top += displacement.y * scale;
     this.bottom += displacement.y * scale;
   }
+
+  center() {
+    return new Vector((this.left + this.right) / 2, (this.bottom + this.top) / 2);
+  }
+
+  /**
+   * 
+   * @param {Rectangle} other 
+   */
+  isBelow(other) {
+    const d = other.center();
+    d.sub(this.center());
+    return (d.y < 0) && (Math.abs(d.y) > Math.abs(d.x));
+  }
 }

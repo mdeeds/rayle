@@ -87,6 +87,10 @@ export class Physics {
         // 1) the velocity applied in this step
         // 2) the minimum translation vector to move body.rect out of `rect`
         body.rect.addScaled(body.velocityMps, -dtS);
+        if (rect.isBelow(body.rect)) {
+          body.velocityMps.y = 0;
+          body.grounded = true;
+        }
       }
     }
   }

@@ -11,6 +11,8 @@ export class RigidBody {
   canMove;
   /** @type {number} */
   massKg;
+  /** @type {boolean} */
+  grounded;
 
   /**
    * 
@@ -20,6 +22,7 @@ export class RigidBody {
     this.rect = rect;
     this.canMove = false;
     this.massKg = 1e7;
+    this.grounded = false;
 
     // These are used by the physics engine
     this.velocityMps = new Vector(0, 0);
