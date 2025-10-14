@@ -1,5 +1,6 @@
 // @ts-check
 
+import { Rectangle } from "./rectangle.js";
 /**
  * Renders a shader onto a canvas within a container element.
  */
@@ -34,11 +35,19 @@ export class ShaderRenderer {
     this.uDistanceToBackgroundMeters = 30.0;
     /** @type {number} */
     this.uBackgroundWidthMeters = 100.0;
+    /** @type {number} */
+    this.screenWidthMeters = 30.0;
+
 
     /** @type {WebGLProgram | null} */
     this.program = null;
     /** @type {WebGLTexture | null} */
     this.texture = null;
+
+    /** @type {number} */
+    this.maxPills = 10;
+    /** @type {Rectangle[]} */
+    this.pills = [];
 
     /** @type {any[]} */
     this.uPillsLocations = [];
@@ -54,6 +63,17 @@ export class ShaderRenderer {
     this.resizeCanvas();
     this.render();
     this.initKeyboard();
+  }
+
+  /**
+   * Adds a pill shape to be rendered, represented by a Rectangle.
+   * @param {Rectangle} rect The rectangle to represent as a pill.
+   */
+  addPill(rect) {
+    if (this.pills.length >= this.maxPills) {
+      throw new Error(`Cannot add more than ${this.maxPills} pills.`);
+    }
+    this.pills.push(rect);
   }
 
   initKeyboard() {
@@ -120,7 +140,7 @@ struct Pill {
     float r;
 };
 
-uniform Pill uPills[2];
+uniform Pill uPills[10];
 
 struct Triangle {
     vec2 p1;
@@ -303,7 +323,7 @@ void main(void) {
   // Render Embers
   vec4 emberColor = vec4(1.0, 0.8, 0.0, 0.7);
   vec2 ePos = getDistortedPosition(v_worldPositionMeters);
-  for (int i = 0; i < 2; i++) {
+  for (int i = 0; i < 10; i++) {
     if (uPills[i].r <= 0.0) {
       continue;
     }
@@ -324,7 +344,7 @@ void main(void) {
 
   // Render Stones
   vec4 stoneColor = vec4(stone(v_worldPositionMeters), 1.0);
-  for (int i = 0; i < 2; i++) {
+  for (int i = 0; i < 10; i++) {
     if (uPills[i].r <= 0.0) {
       continue;
     }
@@ -380,7 +400,7 @@ void main(void) {
     this.gl.enableVertexAttribArray(aPosition);
 
     // Get locations for the array of structs
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < this.maxPills; i++) {
       this.uPillsLocations.push({
         a: this.gl.getUniformLocation(this.program, `uPills[${i}].a`),
         b: this.gl.getUniformLocation(this.program, `uPills[${i}].b`),
@@ -486,16 +506,14 @@ void main(void) {
     const uTimeSecondsLocation = this.gl.getUniformLocation(this.program, 'uTimeSeconds');
     this.gl.uniform1f(uTimeSecondsLocation, this.time);
 
-    // Calculate screen height in meters to maintain aspect ratio
-    const screenWidthMeters = 10.0;
     const aspect = this.canvas.height / this.canvas.width;
-    const screenHeightMeters = screenWidthMeters * aspect;
+    const screenHeightMeters = this.screenWidthMeters * aspect;
 
     const uScreenSizeMetersLocation = this.gl.getUniformLocation(this.program, 'uScreenSizeMeters');
-    this.gl.uniform2f(uScreenSizeMetersLocation, screenWidthMeters, screenHeightMeters);
+    this.gl.uniform2f(uScreenSizeMetersLocation, this.screenWidthMeters, screenHeightMeters);
 
     const uPixelsPerMeterLocation = this.gl.getUniformLocation(this.program, 'uPixelsPerMeter');
-    this.gl.uniform1f(uPixelsPerMeterLocation, this.canvas.width / screenWidthMeters);
+    this.gl.uniform1f(uPixelsPerMeterLocation, this.canvas.width / this.screenWidthMeters);
 
     const uDistanceToScreenMetersLocation = this.gl.getUniformLocation(this.program, 'uDistanceToScreenMeters');
     this.gl.uniform1f(uDistanceToScreenMetersLocation, this.uDistanceToScreenMeters);
@@ -506,16 +524,31 @@ void main(void) {
     const uBackgroundWidthMetersLocation = this.gl.getUniformLocation(this.program, 'uBackgroundWidthMeters');
     this.gl.uniform1f(uBackgroundWidthMetersLocation, this.uBackgroundWidthMeters);
 
-    // Set pill data
-    // Pill 1 (static)
-    this.gl.uniform2f(this.uPillsLocations[0].a, -3.0, 1.0);
-    this.gl.uniform2f(this.uPillsLocations[0].b, -2.0, 3.0);
-    this.gl.uniform1f(this.uPillsLocations[0].r, 0.5);
+    // Update pill uniforms from the pills array
+    for (let i = 0; i < this.maxPills; i++) {
+      const loc = this.uPillsLocations[i];
+      if (i < this.pills.length) {
+        const rect = this.pills[i];
+        const width = rect.right - rect.left;
+        const height = rect.top - rect.bottom;
+        const centerX = (rect.left + rect.right) / 2;
+        const centerY = (rect.bottom + rect.top) / 2;
 
-    // Pill 2 (moves with time)
-    this.gl.uniform2f(this.uPillsLocations[1].a, 2.0, 1.0 + Math.sin(this.time * 2.1));
-    this.gl.uniform2f(this.uPillsLocations[1].b, 3.0, 3.0 + Math.cos(this.time * 2.4));
-    this.gl.uniform1f(this.uPillsLocations[1].r, 0.3);
+        if (width < height) { // Vertical pill
+          const r = width / 2;
+          this.gl.uniform2f(loc.a, centerX, rect.bottom + r);
+          this.gl.uniform2f(loc.b, centerX, rect.top - r);
+          this.gl.uniform1f(loc.r, r);
+        } else { // Horizontal pill
+          const r = height / 2;
+          this.gl.uniform2f(loc.a, rect.left + r, centerY);
+          this.gl.uniform2f(loc.b, rect.right - r, centerY);
+          this.gl.uniform1f(loc.r, r);
+        }
+      } else {
+        this.gl.uniform1f(loc.r, 0.0); // Disable unused pills
+      }
+    }
 
     // Set triangle data
     // Triangle 1 (static)

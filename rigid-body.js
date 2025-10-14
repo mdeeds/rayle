@@ -1,8 +1,8 @@
 
 // @ts-check
 
-import { Vector } from "./vector";
-import { Rectangle } from "./rectangle";
+import { Vector } from "./vector.js";
+import { Rectangle } from "./rectangle.js";
 
 export class RigidBody {
   /** @type {Rectangle} */

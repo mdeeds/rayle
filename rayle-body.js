@@ -1,10 +1,57 @@
+// @ts-check
+
+import { Rectangle } from "./rectangle.js";
+import { RigidBody } from "./rigid-body.js";
+import { Vector } from "./vector.js";
+
 export class RayleBody {
 
+  /** @type {number} */
+  scale;
+  /** @type {number} */
+  heightM = 1.0;
+  /** @type {number} */
+  width = 1.0;
+  /** @type {number} */
+  massKg = 1.0;
+  /** @type {number} */
+  topSpeedMps = 1.0;
+  /** @type {number} */
+  timeScale = 1.0;
+  /** @type {number} */
+  jumpHeightM = 1.0;
+  /** @type {number} */
+  terminalVelocity = 1.0;
+  /** @type {number} */
+  liftAccelerationMpss = 1.0;
+  /** @type {Vector} */
+  position = new Vector(0, 0);
+
+
+  /**
+   * 
+   */
   constructor() {
     this.scale = 0.0;
+    this.rect = new Rectangle(0, 0, 0, 0);
+    this.body = new RigidBody(this.rect);
+    this.body.setMovable(1.0);
     this.update();
   }
 
+
+  /**
+   * @param {Vector} position
+   */
+  setPosition(position) {
+    this.position.set(position);
+    this.update();
+  }
+
+  /**
+   * 
+   * @param {number} scale 
+   */
   setScale(scale) {
     this.scale = scale;
     this.update();
@@ -24,21 +71,11 @@ export class RayleBody {
     const gravitationalForce = 9.8 * this.massKg;
     const flapForce = 90.0 * strength;
     this.liftAccelerationMpss = (flapForce - gravitationalForce) / this.massKg;
-  }
 
-  getPillNumbers(footX, footY) {
-    if (this.width < this.height) {
-      // Normal case, Rayle is taller than wide.
-      const r = this.width / 2.0;
-      const aY = r + footY;
-      const bY = aY + this.heightM - 2.0 * r;
-      const aX = footX;
-      const bX = footX;
-      return [aX, aY, bX, bY, r];
-    } else {
-      // Rayle is wider than tall.
-      const t = this.getPillNumbers(footY, footX);
-      return [t[1], t[0], t[3], t[2], t[4]];
-    }
+    this.body.rect.left = this.position.x - this.width / 2.0;
+    this.body.rect.right = this.position.x + this.width / 2.0;
+    this.body.rect.top = this.position.y + this.heightM;
+    this.body.rect.bottom = this.position.y;
+    this.body.massKg = this.massKg;
   }
 }

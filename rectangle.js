@@ -1,6 +1,6 @@
 // @ts-check
 
-import { Vector } from "./vector";
+import { Vector } from "./vector.js";
 
 export class Rectangle {
   /** @type {number} */

@@ -15,7 +15,6 @@ export class Physics {
    */
   addRigidBody(body) {
     this.bodies.push(body);
-
   }
 
 
