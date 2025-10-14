@@ -28,9 +28,6 @@ export class Physics {
     for (let i = 0; i < numSteps; i++) {
       this.#physicsStep(dtS / numSteps);
     }
-    for (const body of this.bodies) {
-      body.resetPhysics();
-    }
   }
 
   static littleG = new Vector(0, -9.81);
@@ -38,13 +35,7 @@ export class Physics {
   #initPhysics() {
     for (const body of this.bodies) {
       if (body.canMove) {
-        const v = body.netImpulseNS.clone();
-        v.scale(1 / body.massKg);
-        body.velocityMps.add(v);
-        const a = body.netForceN.clone();
-        a.scale(1 / body.massKg);
-        body.accelerationMps2.set(a);
-        body.accelerationMps2.add(Physics.littleG);
+        body.accelerationMps2.set(Physics.littleG);
       }
     }
   }

@@ -24,8 +24,6 @@ export class RigidBody {
     // These are used by the physics engine
     this.velocityMps = new Vector(0, 0);
     this.accelerationMps2 = new Vector(0, 0);
-    this.netForceN = new Vector(0, 0);
-    this.netImpulseNS = new Vector(0, 0);
   }
 
   /**
@@ -35,29 +33,5 @@ export class RigidBody {
   setMovable(massKg) {
     this.canMove = true;
     this.massKg = massKg;
-  }
-
-  resetPhysics() {
-    this.netForceN.x = 0;
-    this.netForceN.y = 0;
-    this.netImpulseNS.x = 0;
-    this.netImpulseNS.y = 0;
-  }
-
-  /**
-   * @param {Vector} impulseNS The impulse to add, in Newton-seconds.
-   */
-  addImpulse(impulseNS) {
-    if (!this.canMove) return;
-    this.netImpulseNS.add(impulseNS);
-  }
-
-  /**
-   * 
-   * @param {Vector} forceN 
-   */
-  addForce(forceN) {
-    if (!this.canMove) return;
-    this.netForceN.add(forceN);
   }
 }

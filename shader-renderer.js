@@ -25,11 +25,6 @@ export class ShaderRenderer {
     this.time = 0.0;
 
     /** @type {number} */
-    this.rayleSize = 0.0;
-    /** @type {number} */
-    this.x = 0.0;
-
-    /** @type {number} */
     this.uDistanceToScreenMeters = 10.0;
     /** @type {number} */
     this.uDistanceToBackgroundMeters = 30.0;
@@ -67,7 +62,6 @@ export class ShaderRenderer {
     this.initWebGL();
     await this.initTexture();
     this.resizeCanvas();
-    this.initKeyboard();
   }
 
   /**
@@ -90,28 +84,6 @@ export class ShaderRenderer {
       throw new Error(`Cannot add more than ${this.maxRectangles} rectangles.`);
     }
     this.rectangles.push(rect);
-  }
-
-  initKeyboard() {
-    document.addEventListener('keydown', (event) => {
-      switch (event.key) {
-        case '1':
-          this.rayleSize = -2.0;
-          break;
-        case '2':
-          this.rayleSize = -1.0;
-          break;
-        case '3':
-          this.rayleSize = 0.0;
-          break;
-        case '4':
-          this.rayleSize = 1.0;
-          break;
-        case '5':
-          this.rayleSize = 2.0;
-          break;
-      }
-    });
   }
 
   /**
