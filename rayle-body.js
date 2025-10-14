@@ -38,6 +38,7 @@ export class RayleBody {
     this.rect = new Rectangle(0, 0, 0, 0);
     this.body = new RigidBody(this.rect);
     this.body.setMovable(1.0);
+    this.initialize();
     this.update();
   }
 
@@ -55,28 +56,35 @@ export class RayleBody {
    * @param {number} scale 
    */
   setScale(scale) {
+    if (scale < -3) { scale = -3.0; }
+    if (scale > 3) { scale = 3.0; }
     this.scale = scale;
     this.update();
   }
 
+  initialize() {
+  }
+
   update() {
+    this.position.x = (this.body.rect.left + this.body.rect.right) / 2.0;
+    this.position.y = this.body.rect.bottom;
+
     this.heightM = 1.0 * Math.pow(2.0, this.scale);
     this.massKg = 10.0 * Math.pow(10, this.scale);
     this.width = 8.0 / 11.0 * Math.pow(Math.sqrt(5.0), this.scale);
     const strength = this.width * this.width;
-    const vacuumTopSpeedMps = 50.0 * strength / this.massKg;
-    const runningDrag = vacuumTopSpeedMps * vacuumTopSpeedMps * this.heightM * this.width / this.massKg;
-    this.topSpeedMps = vacuumTopSpeedMps - runningDrag;
+    const vacuumTopSpeedMps = 200.0 * strength / this.massKg;
+    // const runningDrag = vacuumTopSpeedMps * vacuumTopSpeedMps * this.heightM * this.width / this.massKg;
+    this.topSpeedMps = vacuumTopSpeedMps; // - runningDrag;
     this.timeScale = Math.sqrt(Math.pow(2.0, this.scale));
     this.jumpVelocityMps = 3.0 * vacuumTopSpeedMps;
     this.flapVelocityMps = 0.001 * vacuumTopSpeedMps * vacuumTopSpeedMps / this.massKg;
-
     this.terminalVelocity = 1.0 * Math.sqrt(this.massKg / this.heightM / this.width);
+    this.body.massKg = this.massKg;
 
     this.body.rect.left = this.position.x - this.width / 2.0;
     this.body.rect.right = this.position.x + this.width / 2.0;
     this.body.rect.top = this.position.y + this.heightM;
     this.body.rect.bottom = this.position.y;
-    this.body.massKg = this.massKg;
   }
 }

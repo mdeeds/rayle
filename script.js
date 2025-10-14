@@ -13,71 +13,53 @@ document.addEventListener('DOMContentLoaded', () => {
     throw new Error('Shader container not found.');
   }
   const sr = new ShaderRenderer(container);
-  /** @type {RayleBody[]} */
-  const rayles = [];
-  let playerRayle = null;
-
-  const minX = -10;
-  const p = new Vector(minX, 0);
-  let previousWidth = 0.0;
-  for (let i = -3; i <= 3; i++) {
-    const rayle = new RayleBody();
-    rayle.setScale(i);
-    p.add(new Vector(previousWidth, 0));
-    rayle.setPosition(p);
-    rayles.push(rayle);
-    p.add(new Vector(rayle.width, 0));
-    previousWidth = rayle.width;
-    if (i === 0) {
-      playerRayle = rayle;
-    }
-  }
-
+  /** @type {RayleBody} */
+  const rayle = new RayleBody();
+  rayle.setScale(0);
+  rayle.setPosition(new Vector(0, 0));
 
 
   const physics = new Physics();
 
-  for (const rayle of rayles) {
-    sr.addPill(rayle.body.rect);
-    physics.addRigidBody(rayle.body);
-  }
+  sr.addPill(rayle.body.rect);
+  physics.addRigidBody(rayle.body);
 
-  const floorRect = new Rectangle(minX - 1.0, p.x + 1.0, -9.7, -10);
+  const floorRect = new Rectangle(-15, 15, -9.5, -10);
   const floorBody = new RigidBody(floorRect);
   sr.addRectangle(floorRect);
   physics.addRigidBody(floorBody);
 
   document.addEventListener('keydown', (event) => {
     // Handle all instances of Rayle identically.
-    for (const rayle of rayles) {
-      if (event.code === 'Space') {
-        if (rayle.body.grounded) {
-          rayle.body.velocityMps.y = rayle.jumpVelocityMps;
-        }
-        rayle.body.velocityMps.y += rayle.flapVelocityMps;
-      } else if (event.code === 'KeyA') {
-        if (rayle.body.grounded) {
-          rayle.body.velocityMps.x = -rayle.topSpeedMps;
-        }
-      } else if (event.code === 'KeyD') {
-        if (rayle.body.grounded) {
-          rayle.body.velocityMps.x = rayle.topSpeedMps;
-        }
+    if (event.code === 'Space') {
+      if (rayle.body.grounded) {
+        rayle.body.velocityMps.y = rayle.jumpVelocityMps;
+      }
+      rayle.body.velocityMps.y += rayle.flapVelocityMps;
+    } else if (event.code === 'KeyA') {
+      if (rayle.body.grounded) {
+        rayle.body.velocityMps.x = -rayle.topSpeedMps;
+      }
+    } else if (event.code === 'KeyD') {
+      if (rayle.body.grounded) {
+        rayle.body.velocityMps.x = rayle.topSpeedMps;
       }
     }
   });
 
   document.addEventListener('keyup', (event) => {
-    if (playerRayle && (event.code === 'KeyA' || event.code === 'KeyD')) {
-      playerRayle.body.velocityMps.x = 0;
+    if (rayle && (event.code === 'KeyA' || event.code === 'KeyD')) {
+      rayle.body.velocityMps.x = 0;
     }
   })
 
   const renderLoop = () => {
     sr.render();
-    const dt = 1 / 60;
+    const dt = 1 / 60 * rayle.timeScale;
     physics.physicsStep(dt);
     sr.time += dt;
+    rayle.setScale(0.3 * rayle.body.rect.center().x);
+    sr.screenWidthMeters = rayle.heightM * 15;
     requestAnimationFrame(renderLoop);
   }
 
