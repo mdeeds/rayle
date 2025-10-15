@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', () => {
   /** @type {RayleBody} */
   const rayle = new RayleBody();
   rayle.setScale(0);
-  rayle.setPosition(new Vector(0, 0));
+  rayle.setPosition(new Vector(0, -8));
 
 
   const physics = new Physics();
@@ -50,6 +50,8 @@ document.addEventListener('DOMContentLoaded', () => {
     keysDown.delete(event.code);
   });
 
+  let nextFlap = 0;
+
   const renderLoop = () => {
     sr.render();
     const dt = 1 / 60 * rayle.timeScale;
@@ -69,8 +71,14 @@ document.addEventListener('DOMContentLoaded', () => {
         rayle.body.velocityMps.x = 0;
       }
     }
-    if (keysDown.has('Space') && rayle.body.grounded) {
-      rayle.body.velocityMps.y = rayle.jumpVelocityMps;
+    if (keysDown.has('Space')) {
+      if (sr.time > nextFlap) {
+        nextFlap = sr.time + 0.5;
+        rayle.body.velocityMps.y += rayle.flapVelocityMps;
+      }
+      if (rayle.body.grounded) {
+        rayle.body.velocityMps.y = rayle.jumpVelocityMps;
+      }
     }
 
     requestAnimationFrame(renderLoop);

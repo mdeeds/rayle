@@ -56,8 +56,8 @@ export class RayleBody {
    * @param {number} scale 
    */
   setScale(scale) {
-    if (scale < -1) { scale = -1.0; }
-    if (scale > 2) { scale = 2.0; }
+    if (scale < -3) { scale = -3.0; }
+    if (scale > 3) { scale = 3.0; }
     this.scale = scale;
     this.update();
   }
@@ -75,10 +75,10 @@ export class RayleBody {
     const strength = this.width * this.width;
     const vacuumTopSpeedMps = 200.0 * strength / this.massKg;
     // const runningDrag = vacuumTopSpeedMps * vacuumTopSpeedMps * this.heightM * this.width / this.massKg;
-    this.topSpeedMps = vacuumTopSpeedMps; // - runningDrag;
+    this.topSpeedMps = 4.0 * Math.pow(1.1, this.scale);
     this.timeScale = Math.sqrt(Math.pow(2.0, this.scale));
-    this.jumpVelocityMps = 3.0 * vacuumTopSpeedMps;
-    this.flapVelocityMps = 0.001 * vacuumTopSpeedMps * vacuumTopSpeedMps / this.massKg;
+    this.jumpVelocityMps = 3.0 * Math.pow(0.8, this.scale);
+    this.flapVelocityMps = 0.5 * Math.pow(0.5, this.scale);
     this.terminalVelocity = 1.0 * Math.sqrt(this.massKg / this.heightM / this.width);
     this.body.massKg = this.massKg;
 
